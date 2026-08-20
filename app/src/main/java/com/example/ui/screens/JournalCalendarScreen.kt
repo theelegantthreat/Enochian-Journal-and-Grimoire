@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -53,6 +54,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -217,17 +220,21 @@ fun JournalCalendarScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Date Stepper & Today Action Row
+        // Date Stepper & Today Action Row (Uniform Height across Day, Week, Month)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(48.dp)
                 .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                 .border(1.dp, GoldOutline, RoundedCornerShape(12.dp))
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false)
+            ) {
                 // Previous Time Step Button
                 IconButton(
                     onClick = {
@@ -239,17 +246,19 @@ fun JournalCalendarScreen(
                         }
                         selectedCalendar = newCal
                     },
-                    modifier = Modifier.testTag("calendar_prev_button")
+                    modifier = Modifier.size(36.dp).testTag("calendar_prev_button")
                 ) {
-                    Icon(Icons.Default.ChevronLeft, contentDescription = "Previous", tint = EnochianGold)
+                    Icon(Icons.Default.ChevronLeft, contentDescription = "Previous", tint = EnochianGold, modifier = Modifier.size(20.dp))
                 }
 
-                // Current Date Label
+                // Current Date Label (compact & single-line to maintain uniform height)
                 Text(
                     text = getFormattedHeaderDate(selectedCalendar, activeViewMode),
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = EnochianGold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
 
@@ -264,9 +273,9 @@ fun JournalCalendarScreen(
                         }
                         selectedCalendar = newCal
                     },
-                    modifier = Modifier.testTag("calendar_next_button")
+                    modifier = Modifier.size(36.dp).testTag("calendar_next_button")
                 ) {
-                    Icon(Icons.Default.ChevronRight, contentDescription = "Next", tint = EnochianGold)
+                    Icon(Icons.Default.ChevronRight, contentDescription = "Next", tint = EnochianGold, modifier = Modifier.size(20.dp))
                 }
             }
 
@@ -282,7 +291,7 @@ fun JournalCalendarScreen(
                     labelColor = EnochianGold
                 ),
                 border = AssistChipDefaults.assistChipBorder(borderColor = GoldOutline, enabled = true),
-                modifier = Modifier.testTag("calendar_today_button")
+                modifier = Modifier.height(32.dp).testTag("calendar_today_button")
             )
         }
 
@@ -379,6 +388,8 @@ fun DayCalendarView(
                 Button(
                     onClick = onOpenAddEntry,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = EnochianGold),
+                    border = BorderStroke(1.dp, GoldOutline),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.testTag("day_add_entry_button")
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add", modifier = Modifier.size(16.dp))
@@ -530,6 +541,8 @@ fun WeekCalendarView(
                 Button(
                     onClick = onOpenAddEntry,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = EnochianGold),
+                    border = BorderStroke(1.dp, GoldOutline),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.testTag("week_add_entry_button")
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add", modifier = Modifier.size(16.dp))
@@ -683,6 +696,8 @@ fun MonthCalendarView(
             Button(
                 onClick = onOpenAddEntry,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = EnochianGold),
+                border = BorderStroke(1.dp, GoldOutline),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.testTag("month_add_entry_button")
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add", modifier = Modifier.size(16.dp))
@@ -1021,89 +1036,231 @@ fun AddEntryForDateDialog(
     onDismiss: () -> Unit,
     onSave: (title: String, call: String, planet: String, moon: String, intent: String, outcome: String, insights: String, rating: Int, mood: String) -> Unit
 ) {
-    var title by remember { mutableStateOf("") }
-    var selectedCall by remember { mutableStateOf(EnochianData.CALLS.first().title) }
     var outcomeNotes by remember { mutableStateOf("") }
     var insights by remember { mutableStateOf("") }
-    var selectedMood by remember { mutableStateOf("Serene 🕯️") }
+    var selectedMood by remember { mutableStateOf<String?>(null) }
+    val availableMoods = listOf("Serene 🕯️", "Empowered ⚡", "Mystical 🔮", "Transformative 🌀", "Focused 🎯", "Transcendent ✨")
 
     val formattedDate = formatDateFull(targetCalendar.timeInMillis)
+    val currentDetailedMoon = remember { EsotericUtils.getDetailedLunarPhase() }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Log Ritual Entry for $formattedDate", color = EnochianGold, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "New Entry",
+                        tint = EnochianGold,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "New Entry",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = EnochianGold
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                        .border(1.dp, GoldOutline, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = formattedDate,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = EnochianGold
+                    )
+                }
+            }
         },
         text = {
-            Column {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title / Working Name") },
-                    placeholder = { Text("e.g. Scrying 1st Aethyr LIL") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
-                )
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item {
+                    OutlinedTextField(
+                        value = outcomeNotes,
+                        onValueChange = { outcomeNotes = it },
+                        modifier = Modifier.fillMaxWidth().testTag("calendar_dialog_outcome_input"),
+                        label = { Text("Ritual Outcome & Observations") },
+                        placeholder = { Text("Describe ritual manifestations, elemental shifts, or results...") },
+                        minLines = 3,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EnochianGold,
+                            unfocusedBorderColor = GoldOutline
+                        ),
+                        supportingText = {
+                            val count = outcomeNotes.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.size
+                            Text(
+                                text = "Words: $count",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                item {
+                    OutlinedTextField(
+                        value = insights,
+                        onValueChange = { insights = it },
+                        modifier = Modifier.fillMaxWidth().testTag("calendar_dialog_insights_input"),
+                        label = { Text("Spiritual Insights & Revelations") },
+                        placeholder = { Text("Record esoteric interpretations, inner reflections...") },
+                        minLines = 2,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EnochianGold,
+                            unfocusedBorderColor = GoldOutline
+                        ),
+                        supportingText = {
+                            val count = insights.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.size
+                            Text(
+                                text = "Words: $count",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
+                }
 
-                OutlinedTextField(
-                    value = outcomeNotes,
-                    onValueChange = { outcomeNotes = it },
-                    label = { Text("Ritual Outcome") },
-                    placeholder = { Text("Describe results & observations...") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    maxLines = 3
-                )
+                // Moon Information Row below Spiritual Insights
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                            .border(1.dp, GoldOutline, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = currentDetailedMoon.phaseEmoji,
+                                fontSize = 20.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Lunar Phase: ${currentDetailedMoon.phaseName} (${currentDetailedMoon.illuminationPercent}% illumination)",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = EnochianGold
+                                )
+                                Text(
+                                    text = "Sign: ${currentDetailedMoon.zodiacSign} • Planetary Hour: ${EsotericUtils.getCurrentPlanetaryHour()}",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .background(MysticViolet.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                                .border(1.dp, MysticViolet.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "${currentDetailedMoon.phaseEmoji} Active",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = EnochianGold
+                            )
+                        }
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                val insightsWordCount = if (insights.isBlank()) 0 else insights.trim().split(Regex("\\s+")).size
-                OutlinedTextField(
-                    value = insights,
-                    onValueChange = { insights = it },
-                    label = { Text("Insights") },
-                    placeholder = { Text("Record spiritual revelations...") },
-                    supportingText = {
+                // Ritual Mood & State (no default selection)
+                item {
+                    Column {
                         Text(
-                            text = "$insightsWordCount ${if (insightsWordCount == 1) "word" else "words"}",
-                            fontSize = 11.sp,
-                            color = EnochianGold,
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.End
+                            text = "Ritual Mood & State:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EnochianGold
                         )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    maxLines = 3
-                )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(availableMoods) { moodOption ->
+                                FilterChip(
+                                    selected = selectedMood == moodOption,
+                                    onClick = {
+                                        selectedMood = if (selectedMood == moodOption) null else moodOption
+                                    },
+                                    label = { Text(moodOption, fontSize = 11.sp) },
+                                    modifier = Modifier.testTag("calendar_dialog_mood_${moodOption.replace(" ", "_")}"),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = EnochianGold,
+                                        selectedLabelColor = Color.Black,
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        labelColor = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        borderColor = GoldOutline,
+                                        selectedBorderColor = EnochianGold,
+                                        enabled = true,
+                                        selected = selectedMood == moodOption
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val computedTitle = if (title.isNotBlank()) title else if (outcomeNotes.length > 25) outcomeNotes.take(25) + "..." else "Ritual Working"
-                    onSave(
-                        computedTitle,
-                        selectedCall,
-                        EsotericUtils.getCurrentPlanetaryHour(),
-                        EsotericUtils.getCurrentMoonPhase(),
-                        "Calendar Scheduled Working",
-                        outcomeNotes,
-                        insights,
-                        5,
-                        selectedMood
-                    )
+                    if (outcomeNotes.isNotBlank() || insights.isNotBlank()) {
+                        val computedTitle = if (outcomeNotes.length > 30) {
+                            outcomeNotes.take(30) + "..."
+                        } else if (outcomeNotes.isNotBlank()) {
+                            outcomeNotes
+                        } else {
+                            "Ritual Working"
+                        }
+
+                        onSave(
+                            computedTitle,
+                            EnochianData.CALLS.first().title,
+                            EsotericUtils.getCurrentPlanetaryHour(),
+                            EsotericUtils.getCurrentMoonPhase(),
+                            "Ritual Outcome Logging",
+                            outcomeNotes,
+                            insights,
+                            5,
+                            selectedMood ?: ""
+                        )
+                    }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = EnochianGold, contentColor = Color.Black)
+                enabled = outcomeNotes.isNotBlank() || insights.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = EnochianGold, contentColor = Color.Black),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.testTag("calendar_dialog_save_button")
             ) {
-                Text("Save Entry", fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Save to Ritual Log", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         containerColor = MaterialTheme.colorScheme.surface
@@ -1153,7 +1310,7 @@ fun getMonthGrid42Days(targetCal: Calendar): List<Calendar> {
 
 fun getFormattedHeaderDate(cal: Calendar, mode: CalendarViewMode): String {
     return when (mode) {
-        CalendarViewMode.DAY -> SimpleDateFormat("EEEE, MMM dd, yyyy", Locale.getDefault()).format(cal.time)
+        CalendarViewMode.DAY -> SimpleDateFormat("EEE, MMM dd, yyyy", Locale.getDefault()).format(cal.time)
         CalendarViewMode.WEEK -> {
             val days = get7DaysOfWeek(cal)
             val start = SimpleDateFormat("MMM dd", Locale.getDefault()).format(days.first().time)

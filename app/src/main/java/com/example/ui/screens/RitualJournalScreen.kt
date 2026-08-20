@@ -136,12 +136,12 @@ fun RitualJournalScreen(
     }
 
     var selectedMoodFilter by remember { mutableStateOf("All Moods") }
-    var selectedMoodForNewEntry by remember { mutableStateOf("Serene 🕯️") }
+    var selectedMoodForNewEntry by remember { mutableStateOf<String?>(null) }
 
     // State for the inline "New entry" box below search box
     var inlineOutcomeNotes by remember { mutableStateOf("") }
     var inlineInsights by remember { mutableStateOf("") }
-    var inlineMood by remember { mutableStateOf("Serene 🕯️") }
+    var inlineMood by remember { mutableStateOf<String?>(null) }
 
     var isShowNewEntryDialog by remember { mutableStateOf(false) }
 
@@ -350,6 +350,55 @@ fun RitualJournalScreen(
                         }
                     )
 
+                    // Moon Information Row
+                    val currentDetailedMoon = remember { EsotericUtils.getDetailedLunarPhase() }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                            .border(1.dp, GoldOutline, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = currentDetailedMoon.phaseEmoji,
+                                fontSize = 20.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Lunar Phase: ${currentDetailedMoon.phaseName} (${currentDetailedMoon.illuminationPercent}% illumination)",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = EnochianGold
+                                )
+                                Text(
+                                    text = "Sign: ${currentDetailedMoon.zodiacSign} • Planetary Hour: ${EsotericUtils.getCurrentPlanetaryHour()}",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .background(MysticViolet.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                                .border(1.dp, MysticViolet.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "${currentDetailedMoon.phaseEmoji} Active",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = EnochianGold
+                            )
+                        }
+                    }
+
                     // Mood Selector
                     Column {
                         Text(
@@ -365,7 +414,9 @@ fun RitualJournalScreen(
                             items(availableMoods.filter { it != "All Moods" }) { moodOption ->
                                 FilterChip(
                                     selected = inlineMood == moodOption,
-                                    onClick = { inlineMood = moodOption },
+                                    onClick = {
+                                        inlineMood = if (inlineMood == moodOption) null else moodOption
+                                    },
                                     label = { Text(moodOption, fontSize = 11.sp) },
                                     modifier = Modifier.testTag("inline_mood_${moodOption.replace(" ", "_")}"),
                                     colors = FilterChipDefaults.filterChipColors(
@@ -406,12 +457,12 @@ fun RitualJournalScreen(
                                     inlineOutcomeNotes,
                                     inlineInsights,
                                     5,
-                                    inlineMood
+                                    inlineMood ?: ""
                                 )
 
                                 inlineOutcomeNotes = ""
                                 inlineInsights = ""
-                                inlineMood = "Serene 🕯️"
+                                inlineMood = null
                             }
                         },
                         modifier = Modifier.fillMaxWidth().testTag("save_new_entry_box_button"),
@@ -434,14 +485,16 @@ fun RitualJournalScreen(
                     .border(1.dp, GoldOutline, RoundedCornerShape(12.dp)),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Encrypted",
@@ -464,25 +517,39 @@ fun RitualJournalScreen(
                         }
                     }
 
-                    if (isSyncingCloud) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = EnochianGold,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onTriggerCloudSync() }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                                .testTag("sync_cloud_button")
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.CloudSync, contentDescription = "Sync", tint = EnochianGold, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Sync Now", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EnochianGold)
+                    // Row below "Cloud Backup: Encrypted Active"
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isSyncingCloud) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = EnochianGold,
+                                    strokeWidth = 2.dp
+                                )
+                                Text("Syncing...", fontSize = 11.sp, color = EnochianGold)
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.dp, GoldOutline, RoundedCornerShape(6.dp))
+                                    .clickable { onTriggerCloudSync() }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .testTag("sync_cloud_button")
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.CloudSync, contentDescription = "Sync", tint = EnochianGold, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Sync Now", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EnochianGold)
+                                }
                             }
                         }
                     }
@@ -1166,7 +1233,9 @@ fun RitualJournalScreen(
                             items(availableMoods.filter { it != "All Moods" }) { moodOption ->
                                 FilterChip(
                                     selected = selectedMoodForNewEntry == moodOption,
-                                    onClick = { selectedMoodForNewEntry = moodOption },
+                                    onClick = {
+                                        selectedMoodForNewEntry = if (selectedMoodForNewEntry == moodOption) null else moodOption
+                                    },
                                     label = { Text(moodOption, fontSize = 11.sp) },
                                     modifier = Modifier.testTag("new_entry_mood_${moodOption.replace(" ", "_")}"),
                                     colors = FilterChipDefaults.filterChipColors(
@@ -1242,13 +1311,13 @@ fun RitualJournalScreen(
                                 outcomeNotes,
                                 insights,
                                 rating,
-                                selectedMoodForNewEntry
+                                selectedMoodForNewEntry ?: ""
                             )
                             entryTitle = ""
                             intention = ""
                             outcomeNotes = ""
                             insights = ""
-                            selectedMoodForNewEntry = "Serene 🕯️"
+                            selectedMoodForNewEntry = null
                             isShowNewEntryDialog = false
                         }
                     },
